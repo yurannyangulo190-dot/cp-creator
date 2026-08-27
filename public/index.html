@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>C.P. Creator</title><meta name="theme-color" content="#111827">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="CP Creator">
+<script src="https://checkout.wompi.co/widget.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#111827;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+header{background:#111827;color:white;padding:15px 18px;position:sticky;top:0;z-index:5}.bar{max-width:1100px;margin:auto;display:flex;justify-content:space-between;align-items:center;gap:12px}.logo{font-size:22px;font-weight:900}.logo b{color:#a7f3d0}
+nav{display:flex;gap:5px;overflow:auto;white-space:nowrap}nav button{border:0;background:transparent;color:#d1d5db;font-weight:700;padding:9px;cursor:pointer}nav button:hover{color:white}
+main{max-width:1100px;margin:auto;padding:24px 16px 60px}.page{display:none}.page.on{display:block}
+.hero{background:linear-gradient(135deg,#111827,#26364b);color:white;border-radius:24px;padding:32px}.hero h1{font-size:clamp(35px,7vw,58px);line-height:1;margin:12px 0}.hero p{color:#d1d5db;font-size:17px;max-width:700px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-top:18px}.card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:18px;box-shadow:0 6px 20px #00000008}.tag{display:inline-block;background:#ecfdf5;color:#047857;border-radius:99px;padding:5px 9px;font-size:12px;font-weight:800}
+.btn{border:0;border-radius:11px;padding:11px 15px;font-weight:800;cursor:pointer}.primary{background:#a7f3d0;color:#064e3b}.dark{background:#111827;color:white}.danger{background:#fee2e2;color:#991b1b}
+form{display:grid;gap:12px;max-width:680px}.input,select,textarea{width:100%;padding:12px;border:1px solid #d1d5db;border-radius:11px;font:inherit;background:white}textarea{min-height:90px;resize:vertical}label{font-weight:800;font-size:14px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px}.muted{color:#6b7280}.money{font-size:25px;font-weight:900}.notice{padding:14px;border-radius:13px;background:#fffbeb;border:1px solid #fde68a;margin:14px 0}
+.auth{max-width:520px;margin:auto}.tabs{display:flex;gap:8px;margin-bottom:15px}.tabs button{flex:1}.stat{font-size:28px;font-weight:900}.empty{padding:30px;text-align:center;color:#6b7280}
+@media(max-width:760px){.grid{grid-template-columns:1fr}.hero{padding:24px}.bar{align-items:flex-start;flex-direction:column}}
+</style></head>
+<body>
+<header><div class="bar"><div class="logo">C.P. <b>Creator</b></div><nav>
+<button onclick="go('home')">Inicio</button><button onclick="go('campaigns')">Campañas</button><button onclick="go('dashboard')">Panel</button><button onclick="go('profile')">Perfil</button><button id="out" onclick="logout()" style="display:none">Salir</button>
+</nav></div></header>
+<main>
+<section id="home" class="page on"><div class="hero"><span class="tag">Marketplace en vivo</span><h1>Conecta. Crea. Crece.</h1><p>C.P. Creator conecta marcas y creadores para campañas de contenido, con seguimiento de solicitudes, pagos reales vía Wompi y un modelo de comisión del 10–15%.</p><button class="btn primary" onclick="go('auth')">Crear cuenta</button> <button class="btn" onclick="go('campaigns')">Explorar campañas</button></div>
+<div class="grid"><div class="card"><h3>👤 Creadores</h3><p class="muted">Encuentra campañas y aplica desde tu perfil.</p></div><div class="card"><h3>🏢 Marcas</h3><p class="muted">Publica campañas y recibe solicitudes.</p></div><div class="card"><h3>💰 Pagos reales</h3><p class="muted">Checkout con Wompi y comisión automática del 10–15%.</p></div></div></section>
+
+<section id="auth" class="page"><div class="card auth"><h2 id="authTitle">Crear cuenta</h2><div id="authErr" class="notice" style="display:none"></div><form onsubmit="auth(event)">
+<label>Nombre<input class="input" id="nm" required></label><label>Correo<input class="input" id="em" type="email" required></label><label>Contraseña<input class="input" id="pw" type="password" minlength="6" required></label>
+<label id="tpWrap">Tipo<select id="tp"><option value="creator">Creador</option><option value="brand">Marca</option></select></label>
+<button class="btn primary" id="authBtn">Crear cuenta</button></form><p>¿Ya tienes cuenta? <b onclick="toggleAuth()" style="cursor:pointer;color:#047857">Iniciar sesión</b></p></div></section>
+
+<section id="campaigns" class="page"><div class="row"><div><h2>Campañas disponibles</h2><p class="muted">Las marcas pueden publicar nuevas oportunidades desde su panel.</p></div></div><div id="campaignList" class="grid"></div></section>
+
+<section id="dashboard" class="page"><div id="dash"></div></section>
+
+<section id="profile" class="page"><div id="prof"></div></section>
+</main>
+<script>
+const API = location.origin + "/api";
+let login = false;
+
+function tok(){return localStorage.getItem("cp_token")}
+function setTok(t){t?localStorage.setItem("cp_token",t):localStorage.removeItem("cp_token")}
+function meCache(){try{return JSON.parse(localStorage.getItem("cp_me")||"null")}catch{return null}}
+function setMe(u){u?localStorage.setItem("cp_me",JSON.stringify(u)):localStorage.removeItem("cp_me")}
+
+async function api(path, opts = {}) {
+  const headers = { "Content-Type": "application/json", ...(opts.headers || {}) };
+  if (tok()) headers.Authorization = "Bearer " + tok();
+  const res = await fetch(API + path, { ...opts, headers });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Error de red.");
+  return data;
+}
+
+function money(n){return new Intl.NumberFormat("es-CO",{style:"currency",currency:"COP",maximumFractionDigits:0}).format(n)}
+
+function go(id){document.querySelectorAll(".page").forEach(x=>x.classList.remove("on"));document.getElementById(id).classList.add("on");
+  if(id==="campaigns")renderCampaigns();if(id==="dashboard")renderDash();if(id==="profile")renderProfile();
+  document.getElementById("out").style.display=meCache()?"block":"none";scrollTo(0,0)}
+
+function toggleAuth(){login=!login;authTitle.textContent=login?"Iniciar sesión":"Crear cuenta";authBtn.textContent=login?"Entrar":"Crear cuenta";tpWrap.style.display=login?"none":"block";authErr.style.display="none"}
+
+async function auth(e){
+  e.preventDefault();
+  authErr.style.display="none";
+  try{
+    const body = login ? { email: em.value.trim(), password: pw.value } : { name: nm.value, email: em.value.trim(), password: pw.value, type: tp.value };
+    const data = await api(login ? "/auth/login" : "/auth/register", { method: "POST", body: JSON.stringify(body) });
+    setTok(data.token); setMe(data.user); go("dashboard");
+  }catch(err){ authErr.textContent = err.message; authErr.style.display = "block"; }
+}
+
+function logout(){setTok(null);setMe(null);go("home")}
+
+async function renderCampaigns(){
+  campaignList.innerHTML = '<div class="card empty">Cargando...</div>';
+  try{
+    const { campaigns } = await api("/campaigns");
+    campaignList.innerHTML = campaigns.length ? campaigns.map(x=>`<div class="card"><span class="tag">${x.category}</span><h3>${x.title}</h3><p class="muted">${x.goal}</p><p>Marca: <b>${x.brand_name}</b></p><div class="row"><span class="money">${money(x.budget)}</span><button class="btn primary" onclick="apply(${x.id})">Aplicar</button></div></div>`).join("") : `<div class="card empty">No hay campañas todavía.</div>`;
+  }catch(err){ campaignList.innerHTML = `<div class="card empty">${err.message}</div>`; }
+}
+
+async function apply(id){
+  const u = meCache(); if(!u) return go("auth");
+  if(u.type !== "creator") return alert("Solo los creadores pueden aplicar.");
+  try{ await api("/applications", { method:"POST", body: JSON.stringify({ campaign_id: id }) }); alert("¡Solicitud enviada!"); renderDash(); }
+  catch(err){ alert(err.message); }
+}
+
+async function renderDash(){
+  const u = meCache();
+  if(!u){ dash.innerHTML = '<div class="card empty">Inicia sesión para entrar a tu panel.</div>'; return; }
+  dash.innerHTML = '<div class="card empty">Cargando...</div>';
+  if(u.type === "creator") await renderCreatorDash(u); else await renderBrandDash(u);
+}
+
+async function renderCreatorDash(u){
+  const { applications } = await api("/applications/mine");
+  const completed = applications.filter(a=>a.status==="Completada").length;
+  dash.innerHTML = `<h2>Panel de creador</h2><div class="grid"><div class="card"><span class="muted">Solicitudes</span><div class="stat">${applications.length}</div></div><div class="card"><span class="muted">Completadas</span><div class="stat">${completed}</div></div><div class="card"><span class="muted">Comisión plataforma</span><div class="stat">10–15%</div></div></div><h3>Mis solicitudes</h3>${applications.length?applications.map(a=>`<div class="card" style="margin:10px 0"><div class="row"><b>${a.title}</b><span class="tag">${a.status}</span></div><p class="muted">Presupuesto: ${money(a.budget)} · Marca: ${a.brand_name}</p>${a.status==="Completada"?`<button class="btn primary" onclick="payFor(${a.id})">Ver pago</button>`:""}</div>`).join(""):'<div class="card empty">Aún no tienes solicitudes. Explora campañas.</div>'}`;
+}
+
+async function payFor(applicationId){
+  try{
+    const { payments } = await api("/payments/mine");
+    const p = payments.find(x => x.application_id === applicationId);
+    if(!p) return alert("Aún no se generó el pago para esta solicitud.");
+    const data = await api(`/payments/${p.id}/checkout`, { method:"POST" });
+    const checkout = new WidgetCheckout({
+      currency: data.currency,
+      amountInCents: data.amountInCents,
+      reference: data.reference,
+      publicKey: data.publicKey,
+      signature: { integrity: data.signature }
+    });
+    checkout.open(function(result){ alert("Transacción: " + result.transaction.status); renderDash(); });
+  }catch(err){ alert(err.message); }
+}
+
+async function renderBrandDash(u){
+  const { campaigns } = await api("/campaigns/mine");
+  dash.innerHTML = `<h2>Panel de marca</h2><div class="grid"><div class="card"><span class="muted">Mis campañas</span><div class="stat">${campaigns.length}</div></div><div class="card"><span class="muted">Comisión</span><div class="stat">10–15%</div></div></div><div class="card"><h3>Publicar campaña</h3><form onsubmit="publish(event)"><label>Nombre<input class="input" id="ct" required></label><label>Categoría<input class="input" id="cc" required placeholder="Belleza, moda..."></label><label>Presupuesto COP<input class="input" id="cb" type="number" min="0" required></label><label>Objetivo<textarea id="cg" required></textarea></label><button class="btn primary">Publicar</button></form></div><h3>Mis campañas</h3>${campaigns.length?campaigns.map(c=>`<div class="card" style="margin:10px 0"><div class="row"><b>${c.title}</b><span class="money">${money(c.budget)}</span></div><button class="btn dark" onclick="viewApplicants(${c.id})">Ver solicitudes</button><div id="apps-${c.id}"></div></div>`).join(""):'<div class="card empty">Aún no has publicado campañas.</div>'}`;
+}
+
+async function viewApplicants(campaignId){
+  const box = document.getElementById("apps-"+campaignId);
+  box.innerHTML = "<p class='muted'>Cargando...</p>";
+  const { applications } = await api("/applications/for-campaign/"+campaignId);
+  box.innerHTML = applications.length ? applications.map(a=>`<div class="row" style="margin-top:8px;border-top:1px solid #e5e7eb;padding-top:8px"><div><b>${a.name}</b><br><span class="muted">${a.niche||"Sin nicho"} · ${a.followers||0} seguidores</span></div><select onchange="setStatus(${a.id},this.value)"><option ${a.status==="Pendiente"?"selected":""}>Pendiente</option><option ${a.status==="Aceptada"?"selected":""}>Aceptada</option><option ${a.status==="Rechazada"?"selected":""}>Rechazada</option><option ${a.status==="Completada"?"selected":""}>Completada</option></select></div>`).join("") : "<p class='muted'>Sin solicitudes aún.</p>";
+}
+
+async function setStatus(applicationId, status){
+  try{ await api(`/applications/${applicationId}/status`, { method:"PUT", body: JSON.stringify({ status }) }); }
+  catch(err){ alert(err.message); }
+}
+
+async function publish(e){
+  e.preventDefault();
+  try{
+    await api("/campaigns", { method:"POST", body: JSON.stringify({ title: ct.value, category: cc.value, budget: +cb.value, goal: cg.value }) });
+    alert("Campaña publicada.");
+    renderDash();
+  }catch(err){ alert(err.message); }
+}
+
+async function renderProfile(){
+  const cached = meCache();
+  if(!cached){ prof.innerHTML = '<div class="card empty">Inicia sesión primero.</div>'; return; }
+  const { user } = await api("/auth/me");
+  setMe(user);
+  prof.innerHTML = `<div class="card"><h2>Mi perfil</h2><p><b>${user.name}</b> · ${user.type==="creator"?"Creador":"Marca"}</p><p class="muted">${user.email}</p>${user.type==="creator"?`<form onsubmit="saveProfile(event)"><label>Nicho<input class="input" id="pn" value="${user.niche||""}" placeholder="Belleza, gaming, moda..."></label><label>Seguidores<input class="input" id="pf" type="number" value="${user.followers||0}"></label><button class="btn primary">Guardar perfil</button></form>`:"<p class='muted'>Tu panel de marca permite publicar campañas.</p>"}</div>`;
+}
+
+async function saveProfile(e){
+  e.preventDefault();
+  try{ const { user } = await api("/auth/me", { method:"PUT", body: JSON.stringify({ niche: pn.value, followers: +pf.value }) }); setMe(user); alert("Perfil actualizado."); go("profile"); }
+  catch(err){ alert(err.message); }
+}
+
+go("home");
+if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(()=>{})}
+</script></body></html>
