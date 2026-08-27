@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>C.P. Creator</title><meta name="theme-color" content="#111827">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="CP Creator">
+<script src="https://checkout.wompi.co/widget.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#111827;font-family:system-ui,-apple-system,Segoe UI,sans-serif}
+header{background:#111827;color:white;padding:15px 18px;position:sticky;top:0;z-index:5}.bar{max-width:1100px;margin:auto;display:flex;justify-content:space-between;align-items:center;gap:12px}.logo{font-size:22px;font-weight:900}.logo b{color:#a7f3d0}
+nav{display:flex;gap:5px;overflow:auto;white-space:nowrap}nav button{border:0;background:transparent;color:#d1d5db;font-weight:700;padding:9px;cursor:pointer}nav button:hover{color:white}
+main{max-width:1100px;margin:auto;padding:24px 16px 60px}.page{display:none}.page.on{display:block}
+.hero{background:linear-gradient(135deg,#111827,#26364b);color:white;border-radius:24px;padding:32px}.hero h1{font-size:clamp(35px,7vw,58px);line-height:1;margin:12px 0}.hero p{color:#d1d5db;font-size:17px;max-width:700px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-top:18px}.card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:18px;box-shadow:0 6px 20px #00000008}.tag{display:inline-block;background:#ecfdf5;color:#047857;border-radius:99px;padding:5px 9px;font-size:12px;font-weight:800}
+.btn{border:0;border-radius:11px;padding:11px 15px;font-weight:800;cursor:pointer}.primary{background:#a7f3d0;color:#064e3b}.dark{background:#111827;color:white}.danger{background:#fee2e2;color:#991b1b}
+form{display:grid;gap:12px;max-width:680px}.input,select,textarea{width:100%;padding:12px;border:1px solid #d1d5db;border-radius:11px;font:inherit;background:white}textarea{min-height:90px;resize:vertical}label{font-weight:800;font-size:14px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px}.muted{color:#6b7280}.money{font-size:25px;font-weight:900}.notice{padding:14px;border-radius:13px;background:#fffbeb;border:1px solid #fde68a;margin:14px 0}
+.auth{max-width:520px;margin:auto}.tabs{display:flex;gap:8px;margin-bottom:15px}.tabs button{flex:1}.stat{font-size:28px;font-weight:900}.empty{padding:30px;text-align:center;color:#6b7280}
+@media(max-width:760px){.grid{grid-template-columns:1fr}.hero{padding:24px}.bar{align-items:flex-start;flex-direction:column}}
+</style></head>
+<body>
+<header><div class="bar"><div class="logo">C.P. <b>Creator</b></div><nav>
+<button onclick="go('home')">Inicio</button><button onclick="go('campaigns')">Campañas</button><button onclick="go('dashboard')">Panel</button><button onclick="go('profile')">Perfil</button><button id="out" onclick="logout()" style="display:none">Salir</button>
+</nav></div></header>
+<main>
+<section id="home" class="page on"><div class="hero"><span class="tag">Marketplace en vivo</span><h1>Conecta. Crea. Crece.</h1><p>C.P. Creator conecta marcas y creadores para campañas de contenido, con seguimiento de solicitudes, pagos reales vía Wompi y un modelo de comisión del 10–15%.</p><button class="btn primary" onclick="go('auth')">Crear cuenta</button> <button class="btn" onclick="go('campaigns')">Explorar campañas</button></div>
+<div class="grid"><div class="card"><h3>👤 Creadores</h3><p class="muted">Encuentra campañas y aplica desde tu perfil.</p></div><div class="card"><h3>🏢 Marcas</h3><p class="muted">Publica campañas y recibe solicitudes.</p></div><div class="card"><h3>💰 Pagos reales</h3><p class="muted">Checkout con Wompi y comisión automática del 10–15%.</p></div></div></section>
+
+<section id="auth" class="page"><div class="card auth"><h2 id="authTitle">Crear cuenta</h2><div id="authErr" class="notice" style="display:none"></div><form onsubmit="auth(event)">
+<label>Nombre<input class="input" id="nm" required></label><label>Correo<input class="input" id="em" type="email" required></label><label>Contraseña<input class="input" id="pw" type="password" minlength="6" required></label>
+<label id="tpWrap">Tipo<select id="tp"><option value="creator">Creador</option><option value="brand">Marca</option></select></label>
+<button class="btn primary" id="authBtn">Crear cuenta</button></form><p>¿Ya tienes cuenta? <b onclick="toggleAuth()" style="cursor:pointer;color:#047857">Iniciar sesión</b></p></div></section>
+
+<section id="campaigns" class="page"><div class="row"><div><h2>Campañas disponibles</h2><p class="muted">Las marcas pueden publicar nuevas oportunidades desde su panel.</p></div></div><div id="campaignList" class="grid"></div></section>
+
+<section id="dashboard" class="page"><div id="dash"></div></section>
+
+<section id="profile" class="page"><div id="prof"></div></section>
+</main>
+<script>
+const API = location.origin + "/api";
+let login = false;
+
+function tok(){return localStorage.getItem("cp_token")}
+function setTok(t){t?localStorage.setItem("cp_token",t):localStorage.removeItem("cp_token")}
+function meCache(){try{return JSON.parse(localStorage.getItem("cp_me")||"null")}catch{return null}}
+function setMe(u){u?localStorage.setItem("cp_me",JSON.stringify(u)):localStorage.removeItem("cp_me
